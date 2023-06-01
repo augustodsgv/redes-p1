@@ -36,6 +36,7 @@ def dados_recebidos(conexao, dados):
             destinatario = destinatario.split(b' ')[1]
             privatemsg(conexao, destinatario, dest_msg)
         elif comando == b'JOIN':
+            print("Entrou no join", dados)
             entraCanal(conexao, dado)
         #elif comando == b'PART':
 
@@ -130,17 +131,17 @@ def itsNick(conexao, dados):
         
         # troca de apelido
         else:            
+            # Print de descarte
             print('NOMES AGORA:', Nicks.keys())
             Nicks[apelido.lower()] = Nicks.pop(apelido_antigo.lower())
 
-
-            #Nicks.pop(apelido_antigo.lower())
-            #print(conexao, Nicks[apelido])
-            
+            # Print de descarte            
             print('NOMES DEPOIS:', Nicks.keys())
 
+            # Print de descarte
             print("Trocando apelido")
             print('apelido antigo:' , apelido_antigo ,' NICK ' , apelido,'conexao', conexao,  '\n\n')
+            
             conexao.enviar(b':' + apelido_antigo + b' NICK ' + apelido + b'\r\n')
             return
         
@@ -153,17 +154,22 @@ def itsNick(conexao, dados):
 def privatemsg(conexao, destinatario, dados):
     #retirando o comando
     remetente = encontra_usuario(conexao)
-    #print('O tal do estilha o otario:', destinatario)
-    #destinatario = destinatario.split(b' ', 1)[1]
+
+    # Print de descarte
     print("destinatario = ", destinatario.lower(), "MENSAGEM = ", dados)
     
     # primeira etapa
     if destinatario.lower() not in Nicks:
          return
-    print('O OTARIO Q VAI RECEBER', destinatario)
-    print("mandou\n\n")
+    
     cx_dest = encontraConexao(destinatario.lower())
-    cx_dest.enviar(b':' + remetente + b' PRIVMSG ' + destinatario + b' :' + dados + b'\r\n')
+
+    msg = b':' + remetente + b' PRIVMSG ' + destinatario + b' :' + dados + b'\r\n'
+    cx_dest.enviar(msg)
+
+    # Print de descarte
+    print("mandou\n\n")
+
     return  
         
 # FIM CASO 5
@@ -174,8 +180,11 @@ def privatemsg(conexao, destinatario, dados):
 
 # Funcao para mandar msg para todos no canal
 def msgList(conexao, canal, msg):
-    for usuario in Canais[canal]:
+    for usuario in Canais[canal.lower()]:
+        # Print de descarte
+        print('entrando no private msg')
         privatemsg(conexao, usuario, msg)
+
     # Print de descarte
     print("MANDANDO MSGS PRA TODOS NO CANAL\n\n*********************\n\n\n")
 
@@ -189,8 +198,10 @@ def entraCanal(conexao, dados):
     canal = canal.split(b'\r\n')[0] # removendo os caracteres de quebra de linha
     
     # validando o nome do canal
-    if (not validar_nome(canal.split(b'#')[1])) or canal[0] != 35: # 35 eh a cerquilha em ASCII
+    if (validar_nome(canal.split(b'#')[1]) is None) or canal[0] != 35: # 35 eh a cerquilha em ASCII
         conexao.enviar(b':server 403 '  + canal + b' :No such channel\r\n')
+
+        # Print de descarte
         print('CANAL INVALIDO\n****************\n\n')
         return
     
@@ -200,18 +211,21 @@ def entraCanal(conexao, dados):
     usuario = encontra_usuario(conexao)
 
     # se o canal nao existe, crie um canal
-    if canal not in Canais:
-        Canais[canal] = [usuario]
+    if canal.lower() not in Canais:
+
+        # Print de descarte
+        print('criou canal', canal)
+        Canais[canal.lower()] = [usuario]
     # se ele ja existe
-    elif canal in Canais:
+    elif canal.lower() in Canais:
         # confirme se o usuario nao esta nesse canal
-        if usuario not in Canais[canal]:
+        if usuario not in Canais[canal.lower()]:
             # Nao estando no canal, coloque-o
-            var_user = Canais[canal]
+            var_user = Canais[canal.lower()]
             var_user.append(usuario)
             # Organize os usuarios
             var_user.sort()
-            Canais[canal] = var_user
+            Canais[canal.lower()] = var_user
 
             # Print de descarte
             print(var_user, '\n\n\n')
@@ -224,6 +238,7 @@ def entraCanal(conexao, dados):
     
     # mandando a msg
     msgList(conexao, canal, msg)
+    print('Canais', Canais)
 
     #parte do teste 9
     #pega os todos o membros daquele canal e coloca em ordem alfabetica
@@ -231,7 +246,7 @@ def entraCanal(conexao, dados):
     membrosCanal.sort()
 
     #junta em uma variavel separando cada nome por um espaço
-    membros = " ".join(membrosCanal)
+    membros = b" ".join(membrosCanal)
     #calcula o limite de caracters que vai poder colocar na tela retirando o que vai de padrão na mensagem já
     x = 512 - len(f':server 353 {usuario} = {canal} :') - len(b'\r\n')
 
@@ -239,10 +254,10 @@ def entraCanal(conexao, dados):
     membrosPadrao = [membros[i:i+x] for i in range(0, len(membros), x)]
 
     #envia a mensagem com a lista dos membros para o usuario que entrou
-    conexao.enviar(b':server 353 ' + usuario + b' = ' + canal + b' : ' + " ".join(membrosPadrao) +b'\r\n')
+    conexao.enviar(b':server 353 ' + usuario + b' = ' + canal + b' : ' + b" ".join(membrosPadrao) +b'\r\n')
     # envia a mensagem que acabou de exibir os nomes dos membros
-    conexao.enviar(b':server 366 '+ usuario +' '+ canal + ' :End of /NAMES list.')
-
+    conexao.enviar(b':server 366 '+ usuario + b' '+ canal + b' :End of /NAMES list.')
+    return
 
 # CASO 7
 def saiCanal(conexao, dados):

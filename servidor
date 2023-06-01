@@ -177,7 +177,7 @@ def msgList(conexao, canal, msg):
     for usuario in Canais[canal]:
         privatemsg(conexao, usuario, msg)
     # Print de descarte
-    print("MANDANDO MSGS PRA TODOS NO ANAL\n\n*********************\n\n\n")
+    print("MANDANDO MSGS PRA TODOS NO CANAL\n\n*********************\n\n\n")
 
 
 # funcao para entrar no canal
@@ -191,10 +191,10 @@ def entraCanal(conexao, dados):
     # validando o nome do canal
     if (not validar_nome(canal.split(b'#')[1])) or canal[0] != 35: # 35 eh a cerquilha em ASCII
         conexao.enviar(b':server 403 '  + canal + b' :No such channel\r\n')
-        print('ANAL INVALIDO\n****************\n\n')
+        print('CANAL INVALIDO\n****************\n\n')
         return
     
-    print("ANAL VALIDO\n********\n\n\n")
+    print("CANAL VALIDO\n********\n\n\n")
 
     # encontrando o nick do usuario que solicitou o canal
     usuario = encontra_usuario(conexao)

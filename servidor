@@ -89,7 +89,7 @@ def data_treatment(conexao, dados):
 
 # ENCONTRA USUARIO
 def encontra_usuario(conexao):
-    # confirmar se existe uma conexao ja estabelecida
+    # Retorna o Nick do usuario com base na conexao
         for chave, valor in Nicks.items():
                 if conexao == valor:
                     return chave
@@ -98,7 +98,7 @@ def encontra_usuario(conexao):
 
 
 def encontraConexao(usuario):
-    # confirmar se existe uma conexao ja estabelecida
+    # retorna o endereco de conexao do usuario com base no Nick
         for chave, valor in Nicks.items():
                 if usuario == chave:
                     return valor
@@ -106,12 +106,16 @@ def encontraConexao(usuario):
         return b'*'
 
 
-              
+def remove_dado(dados):
+    print('remove dados:', dados)
+    if b' ' in dados:
+        dados = dados.split(b' ', 1)[1]
+    if b'\r\n' in dados:
+         dados = dados.split(b'\r\n', 1)[0]
+    print('Ta saindo do remove dados', dados)
+    return dados          
 def itsNick(conexao, dados):
-
-
-    apelido = dados.split(b' ', 1)[1] # extraindo o apelido após o comando
-    apelido = apelido.split(b'\r\n')[0] # removendo os caracteres de quebra de linha
+    apelido = remove_dado(dados)
     apelido_antigo = encontra_usuario(conexao)    
 
 
@@ -160,14 +164,16 @@ def privatemsg(conexao, destinatario, dados):
     
     # primeira etapa
     if destinatario.lower() not in Nicks:
+         print('\n********\nUSUARIO NAO ENCONTRADO\n******\n\n\n')
          return
     
     cx_dest = encontraConexao(destinatario.lower())
 
-    msg = b':' + remetente + b' PRIVMSG ' + destinatario + b' :' + dados + b'\r\n'
+    msg = b':' + remetente + b' PRIVMSG ' + destinatario + b' :' + dados
     cx_dest.enviar(msg)
 
     # Print de descarte
+    print(Nicks)
     print("mandou\n\n")
 
     return  
@@ -191,8 +197,6 @@ def msgList(conexao, canal, msg):
 
 # funcao para entrar no canal
 def entraCanal(conexao, dados):
-    # ta entrando aqui
-    #print('chegou nessa merda\n\n\n\n')
     # separamento dos dados
     canal = dados.split(b' ', 1)[1] # extraindo o apelido após o comando
     canal = canal.split(b'\r\n')[0] # removendo os caracteres de quebra de linha

@@ -5,23 +5,59 @@ import re
 Nicks = {}
 Canais = {}
 
+# Funções auxiliares
 
-
-def validar_nome(nome):
+def validarNome(nome):
+    # Checa se tem caracteres especiais
     return re.match(br'^[a-zA-Z][a-zA-Z0-9_-]*$', nome) is not None
 
 
 def sair(conexao):
-    #print(conexao, 'conexão fechada')
+    # Função para fechar a conexao
     conexao.fechar()
 
+def encontraUsuario(conexao):
+    # Retorna o Nick do usuario com base na conexao
+    for chave, valor in Nicks.items():
+            if conexao == valor:
+                return chave
+                
+    return b'*'
 
-def dados_recebidos(conexao, dados):
-    #print('ENTRADA: ', dados)
+def encontraConexao(usuario):
+    # retorna o endereco de conexao do usuario com base no Nick
+    for chave, valor in Nicks.items():
+            if usuario == chave:
+                return valor
+                
+    return b'*'
+
+def removeDado(dados):
+    # Função para retirar comando e quebra de linha de uma mensagem
+    if b' ' in dados:
+        dados = dados.split(b' ', 1)[1]
+    if b'\r\n' in dados:
+         dados = dados.split(b'\r\n', 1)[0]
+    return dados          
+
+
+
+def msgList(conexao, canal, msg):
+    # Funcao para mandar msg para todos no canal
+    for usuario in Canais[canal.lower()]:
+        # Print de descarte
+        print('entrando no private msg', msg, '\n*******\n\n\n')
+        privateMsg(conexao, usuario, msg)
+
+# Fim das funções auxiliares
+#####################
+def dadosRecebidos(conexao, dados):
+    # Função auxiliar de switch dos comandos de entrada
     if dados == b'':
         return sair(conexao)
     #chamada do tratamento do caso 2
-    dados = data_treatment(conexao, dados)
+    dados = trataDados(conexao, dados)
+
     # recebe todos os elementos de dados menos o ultimo (vazio)
     dados = dados[:-1]
     for dado in dados:
@@ -34,29 +70,27 @@ def dados_recebidos(conexao, dados):
         elif comando == b'PRIVMSG':
             destinatario, dest_msg = dado.split(b' :', 1)
             destinatario = destinatario.split(b' ')[1]
-            msg = b':' + encontra_usuario(conexao) + b' PRIVMSG ' + destinatario + b' :' + dest_msg
-            privatemsg(conexao, destinatario, msg)
+            msg = b':' + encontraUsuario(conexao) + b' PRIVMSG ' + destinatario + b' :' + dest_msg
+            privateMsg(conexao, destinatario, msg)
         elif comando == b'JOIN':
             entraCanal(conexao, dado)
         #elif comando == b'PART':
 
         
 
+def conexaoAceita(conexao):
+    conexao.registrar_recebedor(dadosRecebidos)
+    conexao.dados_residuais = b''
 
 # TRATAMENTO DO CASO 1
 def itsPing (conexao, dados):
-    
+    # retorna resposta na forma ':server PONG server :dados'
     resposta= b':server PONG server :'
     resposta+= dados.split(b' ', 1)[1] # resposta recebe resposta padrão + payload
     conexao.enviar(resposta)
 
-def conexao_aceita(conexao):
-    conexao.registrar_recebedor(dados_recebidos)
-    conexao.dados_residuais = b''
-
-
 # TRATAMENTO DO CASO 2
-def data_treatment(conexao, dados):
+def trataDados(conexao, dados):
     """
     Funcao para o tratamento de entradas, podendo receber entradas como:
     * 'lin', depois 'h' e depois 'a\r\n'
@@ -85,44 +119,17 @@ def data_treatment(conexao, dados):
     return dados
         
 # FIM DO CASO 2	
+
+
 # TRATAMENTO CASO 3 E 4
-
-
-# ENCONTRA USUARIO
-def encontra_usuario(conexao):
-    # Retorna o Nick do usuario com base na conexao
-    for chave, valor in Nicks.items():
-            if conexao == valor:
-                return chave
-                
-    return b'*'
-
-
-def encontraConexao(usuario):
-    #print('ENCONTRA CONEXAO\n\n\n\n\n')
-    # retorna o endereco de conexao do usuario com base no Nick
-    for chave, valor in Nicks.items():
-            if usuario == chave:
-                print('\n\n\nTIPO DO VALOR:', type(valor), '\n\n\n\n\n')
-                return valor
-                
-    return b'*'
-
-
-def remove_dado(dados):
-    if b' ' in dados:
-        dados = dados.split(b' ', 1)[1]
-    if b'\r\n' in dados:
-         dados = dados.split(b'\r\n', 1)[0]
-    return dados          
-
 def itsNick(conexao, dados):
-    apelido = remove_dado(dados)
-    apelido_antigo = encontra_usuario(conexao)    
+    # Função para adicionar ou trocar um Nickname para o usuario
+    apelido = removeDado(dados)
+    apelido_antigo = encontraUsuario(conexao)    
 
 
     # validando apelido 
-    if validar_nome(apelido):
+    if validarNome(apelido):
         # se o apelido ja tiver nos nicks e nao tem o mesmo valor de conexao
         if apelido.lower() in Nicks:
             conexao.enviar (b':server 433 ' + apelido_antigo + b' ' + apelido + b' :Nickname is already in use\r\n')
@@ -137,7 +144,6 @@ def itsNick(conexao, dados):
         
         # troca de apelido
         else:            
-            # Print de descarte
             Nicks[apelido.lower()] = Nicks.pop(apelido_antigo.lower())
             conexao.enviar(b':' + apelido_antigo + b' NICK ' + apelido + b'\r\n')
             return
@@ -148,74 +154,62 @@ def itsNick(conexao, dados):
         return
 
 # INICIO DO 5
-def privatemsg(conexao, destinatario, dados):
-    #retirando o comando
-    remetente = encontra_usuario(conexao)
+def privateMsg(conexao, destinatario, dados):
+    # Função para mandar mensagem privada para um determinado usuario
 
-    # Print de descarte
-    #print("destinatario = ", destinatario.lower(), "MENSAGEM = ", dados)
-    
-    # primeira etapa
+    #Encontrando o nick de quem mandou
+    remetente = encontraUsuario(conexao)
+
+    # Caso o destinataio não esteja cadastrado, retorne
     if destinatario.lower() not in Nicks:
-         #print('\n********\nUSUARIO NAO ENCONTRADO\n******\n\n\n')
          return
 
-    print('ISSO AQUI EH UM PROBLEMA?\n\n\n\n\n')    
+    # Encontrando o objeto de conexao do destinatario
     cx_dest = encontraConexao(destinatario.lower())
-    print('ISSO AQUI EH UM PROBLEMA?\n\n\n\n\n')
-
+    
+    # enviando a mensagem pro destinatario
     cx_dest.enviar(dados)
+
+    # print de descarte
     print('\n\n*****************\nPRIVATE MSG ENVIO:', dados, '\n*************\n\n\n')
 
     # Print de descarte
-    print(Nicks)
     print("mandou\n\n")
 
     return  
         
 # FIM CASO 5
 
-
-
 # CASO 6 e 9 (enviar mensagem com lista de membros quando alguém entra)
 
-# Funcao para mandar msg para todos no canal
-def msgList(conexao, canal, msg):
-    for usuario in Canais[canal.lower()]:
-        # Print de descarte
-        #print('entrando no private msg', msg, '\n*******\n\n\n')
-        privatemsg(conexao, usuario, msg)
-
-    # Print de descarte
-    print("MANDANDO MSGS PRA TODOS NO CANAL\n\n*********************\n\n\n")
-
-
-# funcao para entrar no canal
 def entraCanal(conexao, dados):
-    # separamento dos dados
-    canal = remove_dado(dados)
+    # funcao para entrar no canal
+
+    # Separando o nome do canal
+    canal = removeDado(dados)
 
     # validando o nome do canal
-    if (validar_nome(canal.split(b'#')[1]) is None) or canal[0] != 35: # 35 eh a cerquilha em ASCII
+    if (validarNome(canal.split(b'#')[1]) is None) or canal[0] != 35: # 35 eh a cerquilha em ASCII
         conexao.enviar(b':server 403 '  + canal + b' :No such channel\r\n')
         return
     
-    print("CANAL VALIDO\n********\n\n\n")
-
     # encontrando o nick do usuario que solicitou o canal
-    usuario = encontra_usuario(conexao)
+    usuario = encontraUsuario(conexao)
 
     # se o canal nao existe, crie um canal
     if canal.lower() not in Canais:
-
-        # Print de descarte
-        print('criou canal', canal)
         Canais[canal.lower()] = [usuario]
+    
     # se ele ja existe
     elif canal.lower() in Canais:
         # confirme se o usuario nao esta nesse canal
+        # print de descarte
+        print('entrando em canal que ja existe')
         if usuario not in Canais[canal.lower()]:
-            # Nao estando no canal, coloque-o
+            # print de descarte
+            print('Usuario entrando no canal:', usuario)
+
+            # Adicionando o usuario na lista do canal
             var_user = Canais[canal.lower()]
             var_user.append(usuario)
             # Organize os usuarios
@@ -228,6 +222,7 @@ def entraCanal(conexao, dados):
             # Deletando a variavel para desalocar espaço na memoria
             del var_user
         else:
+            # Caso o usuario esteja no canal
             print('USUARIO DENTRO DO CANAL\n\n\n')
             return
 
@@ -235,8 +230,12 @@ def entraCanal(conexao, dados):
     msg = usuario + b' JOIN :' + canal + b'\r\n'
     
     # mandando a msg
+    print('NOME DO CANAL', canal, '\n\n\n\n')
     msgList(conexao, canal, msg)
     print('Canais', Canais)
+
+    # Parte comentada foi escrita pela Bruna, 
+    # ainda em fases de teste depois de concluirmos o caso 6
     """
     #parte do teste 9
     #pega os todos o membros daquele canal e coloca em ordem alfabetica
@@ -260,18 +259,24 @@ def entraCanal(conexao, dados):
 
 # CASO 7
 def saiCanal(conexao, dados):
+    # Função para sair do canal, 
+    # ainda em desenvolvimento
     canal = dados.split(b' ', 1)[1] # extraindo o canal após o comando
     canal = canal.split(b'\r\n')[0] # removendo os caracteres de quebra de linha
 
-    usuario = encontra_usuario(conexao)
+    usuario = encontraUsuario(conexao)
 
+    # monta a mensagem de aviso para membros do canal
     msg = b':' + usuario + b' PART ' + canal + b'\r\n'
+
+    # envia
     msgList(canal, msg)
 
+    # removendo o usuario do canal
     users = Canais[canal]
     users.remove(usuario)
     Canais[canal] = users
    
 servidor = Servidor(6667)
-servidor.registrar_monitor_de_conexoes_aceitas(conexao_aceita)
+servidor.registrar_monitor_de_conexoes_aceitas(conexaoAceita)
 asyncio.get_event_loop().run_forever()

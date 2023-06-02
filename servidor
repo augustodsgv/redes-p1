@@ -12,12 +12,12 @@ def validar_nome(nome):
 
 
 def sair(conexao):
-    print(conexao, 'conexão fechada')
+    #print(conexao, 'conexão fechada')
     conexao.fechar()
 
 
 def dados_recebidos(conexao, dados):
-    print('ENTRADA: ', dados)
+    #print('ENTRADA: ', dados)
     if dados == b'':
         return sair(conexao)
     #chamada do tratamento do caso 2
@@ -34,11 +34,13 @@ def dados_recebidos(conexao, dados):
         elif comando == b'PRIVMSG':
             destinatario, dest_msg = dado.split(b' :', 1)
             destinatario = destinatario.split(b' ')[1]
-            privatemsg(conexao, destinatario, dest_msg)
+            msg = b':' + encontra_usuario(conexao) + b' PRIVMSG ' + destinatario + b' :' + dest_msg
+            privatemsg(conexao, destinatario, msg)
         elif comando == b'JOIN':
-            print("Entrou no join", dados)
             entraCanal(conexao, dado)
         #elif comando == b'PART':
+
+        
 
 
 # TRATAMENTO DO CASO 1
@@ -49,7 +51,6 @@ def itsPing (conexao, dados):
     conexao.enviar(resposta)
 
 def conexao_aceita(conexao):
-    print(conexao, 'nova conexão')
     conexao.registrar_recebedor(dados_recebidos)
     conexao.dados_residuais = b''
 
@@ -90,30 +91,31 @@ def data_treatment(conexao, dados):
 # ENCONTRA USUARIO
 def encontra_usuario(conexao):
     # Retorna o Nick do usuario com base na conexao
-        for chave, valor in Nicks.items():
-                if conexao == valor:
-                    return chave
-                    
-        return b'*'
+    for chave, valor in Nicks.items():
+            if conexao == valor:
+                return chave
+                
+    return b'*'
 
 
 def encontraConexao(usuario):
+    #print('ENCONTRA CONEXAO\n\n\n\n\n')
     # retorna o endereco de conexao do usuario com base no Nick
-        for chave, valor in Nicks.items():
-                if usuario == chave:
-                    return valor
-                    
-        return b'*'
+    for chave, valor in Nicks.items():
+            if usuario == chave:
+                print('\n\n\nTIPO DO VALOR:', type(valor), '\n\n\n\n\n')
+                return valor
+                
+    return b'*'
 
 
 def remove_dado(dados):
-    print('remove dados:', dados)
     if b' ' in dados:
         dados = dados.split(b' ', 1)[1]
     if b'\r\n' in dados:
          dados = dados.split(b'\r\n', 1)[0]
-    print('Ta saindo do remove dados', dados)
     return dados          
+
 def itsNick(conexao, dados):
     apelido = remove_dado(dados)
     apelido_antigo = encontra_usuario(conexao)    
@@ -136,16 +138,7 @@ def itsNick(conexao, dados):
         # troca de apelido
         else:            
             # Print de descarte
-            print('NOMES AGORA:', Nicks.keys())
             Nicks[apelido.lower()] = Nicks.pop(apelido_antigo.lower())
-
-            # Print de descarte            
-            print('NOMES DEPOIS:', Nicks.keys())
-
-            # Print de descarte
-            print("Trocando apelido")
-            print('apelido antigo:' , apelido_antigo ,' NICK ' , apelido,'conexao', conexao,  '\n\n')
-            
             conexao.enviar(b':' + apelido_antigo + b' NICK ' + apelido + b'\r\n')
             return
         
@@ -160,17 +153,19 @@ def privatemsg(conexao, destinatario, dados):
     remetente = encontra_usuario(conexao)
 
     # Print de descarte
-    print("destinatario = ", destinatario.lower(), "MENSAGEM = ", dados)
+    #print("destinatario = ", destinatario.lower(), "MENSAGEM = ", dados)
     
     # primeira etapa
     if destinatario.lower() not in Nicks:
-         print('\n********\nUSUARIO NAO ENCONTRADO\n******\n\n\n')
+         #print('\n********\nUSUARIO NAO ENCONTRADO\n******\n\n\n')
          return
-    
-    cx_dest = encontraConexao(destinatario.lower())
 
-    msg = b':' + remetente + b' PRIVMSG ' + destinatario + b' :' + dados
-    cx_dest.enviar(msg)
+    print('ISSO AQUI EH UM PROBLEMA?\n\n\n\n\n')    
+    cx_dest = encontraConexao(destinatario.lower())
+    print('ISSO AQUI EH UM PROBLEMA?\n\n\n\n\n')
+
+    cx_dest.enviar(dados)
+    print('\n\n*****************\nPRIVATE MSG ENVIO:', dados, '\n*************\n\n\n')
 
     # Print de descarte
     print(Nicks)
@@ -188,7 +183,7 @@ def privatemsg(conexao, destinatario, dados):
 def msgList(conexao, canal, msg):
     for usuario in Canais[canal.lower()]:
         # Print de descarte
-        print('entrando no private msg')
+        #print('entrando no private msg', msg, '\n*******\n\n\n')
         privatemsg(conexao, usuario, msg)
 
     # Print de descarte
@@ -198,15 +193,11 @@ def msgList(conexao, canal, msg):
 # funcao para entrar no canal
 def entraCanal(conexao, dados):
     # separamento dos dados
-    canal = dados.split(b' ', 1)[1] # extraindo o apelido após o comando
-    canal = canal.split(b'\r\n')[0] # removendo os caracteres de quebra de linha
-    
+    canal = remove_dado(dados)
+
     # validando o nome do canal
     if (validar_nome(canal.split(b'#')[1]) is None) or canal[0] != 35: # 35 eh a cerquilha em ASCII
         conexao.enviar(b':server 403 '  + canal + b' :No such channel\r\n')
-
-        # Print de descarte
-        print('CANAL INVALIDO\n****************\n\n')
         return
     
     print("CANAL VALIDO\n********\n\n\n")
@@ -236,14 +227,17 @@ def entraCanal(conexao, dados):
 
             # Deletando a variavel para desalocar espaço na memoria
             del var_user
+        else:
+            print('USUARIO DENTRO DO CANAL\n\n\n')
+            return
 
     # enviando msg de entrada no canal
-    msg = b':' + usuario + b' JOIN :' + canal + b'\r\n'
+    msg = usuario + b' JOIN :' + canal + b'\r\n'
     
     # mandando a msg
     msgList(conexao, canal, msg)
     print('Canais', Canais)
-
+    """
     #parte do teste 9
     #pega os todos o membros daquele canal e coloca em ordem alfabetica
     membrosCanal = Canais[canal]
@@ -261,6 +255,7 @@ def entraCanal(conexao, dados):
     conexao.enviar(b':server 353 ' + usuario + b' = ' + canal + b' : ' + b" ".join(membrosPadrao) +b'\r\n')
     # envia a mensagem que acabou de exibir os nomes dos membros
     conexao.enviar(b':server 366 '+ usuario + b' '+ canal + b' :End of /NAMES list.')
+    """
     return
 
 # CASO 7

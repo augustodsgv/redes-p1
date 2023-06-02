@@ -46,7 +46,8 @@ def msgList(conexao, canal, msg):
     # Funcao para mandar msg para todos no canal
     for usuario in Canais[canal.lower()]:
         # Print de descarte
-        print('entrando no private msg', msg, '\n*******\n\n\n')
+        print('usuario', usuario)
+        print('entrando no msglist', msg, '\n*******\n\n\n')
         privateMsg(conexao, usuario, msg)
 
 # Fim das funções auxiliares
@@ -198,6 +199,7 @@ def entraCanal(conexao, dados):
 
     # se o canal nao existe, crie um canal
     if canal.lower() not in Canais:
+        print('CRIANDO UM CANAL NOVO')
         Canais[canal.lower()] = [usuario]
     
     # se ele ja existe
@@ -227,7 +229,7 @@ def entraCanal(conexao, dados):
             return
 
     # enviando msg de entrada no canal
-    msg = usuario + b' JOIN :' + canal + b'\r\n'
+    msg = b':' + usuario + b' JOIN :' + canal + b'\r\n'
     
     # mandando a msg
     print('NOME DO CANAL', canal, '\n\n\n\n')

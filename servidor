@@ -1,3 +1,12 @@
+# TRABALHO DE IMPLEMENTACAO DE REDES
+# IMPLEMENTAR UM SERVIDOR IRC
+# Responsaveis pelo trabalho:
+#    Augusto dos Santos Gomes Vaz
+#    Bruna Luiza Pereira
+#    Gabrielly Castilho Guimarães
+#    Jayme Sakae dos Reis Furuyama
+#    Joao Pedro Trevisan
+
 #!/usr/bin/env python3
 import asyncio
 from grader.tcp import Servidor

@@ -67,7 +67,8 @@ def dadosRecebidos(conexao, dados):
             privateMsg(conexao, destinatario, msg)
         elif comando == b'JOIN':
             entraCanal(conexao, dado)
-        #elif comando == b'PART':
+        elif comando == b'PART':
+            saiCanal(conexao, dados)
 
         
 
@@ -154,18 +155,13 @@ def msgList(conexao, canal, msg):
     # separando os usuarios que receberam a msg
     usuarios = Canais[canal.lower()].copy()
 
-    print('comando msglist:', comando)
     # Caso for uma mensagem privada, os membros do canal
     # receberam a msg, com excesao do usuario que mandou
     if comando == b'PRIVMSG':
         usuarios.remove(encontraUsuario(conexao).lower())
-        if usuarios is None:
-            print('ficou vazio')
-            return
+    
     for usuario in usuarios:
         # Print de descarte
-        print('usuario', usuario)
-        print('entrando no msglist', msg, '\n*******\n\n\n')
         privateMsg(conexao, usuario, msg)
     return
 
@@ -175,8 +171,6 @@ def privateMsg(conexao, destinatario, dados):
     #print('destinatario:', destinatario)
     # Função para mandar mensagem privada para um determinado usuario
     if destinatario[0] == 35:
-        print('CANAL:', destinatario)
-        print('USUARIOS:', Canais[destinatario.lower()])
         msgList(conexao, destinatario, dados)
     #Encontrando o nick de quem mandou
     remetente = encontraUsuario(conexao)
@@ -192,7 +186,7 @@ def privateMsg(conexao, destinatario, dados):
     cx_dest.enviar(dados)
 
     # print de descarte
-    print('\n\n*****************\nPRIVATE MSG ENVIO:', dados, '\n*************\n\n\n')
+    #print('\n\n*****************\nPRIVATE MSG ENVIO:', dados, '\n*************\n\n\n')
 
     # Print de descarte
     #print("mandou\n\n")
@@ -219,18 +213,13 @@ def entraCanal(conexao, dados):
 
     # se o canal nao existe, crie um canal
     if canal.lower() not in Canais:
-        print('CRIANDO UM CANAL NOVO')
         Canais[canal.lower()] = [usuario]
     
     # se ele ja existe
     elif canal.lower() in Canais:
         # confirme se o usuario nao esta nesse canal
         # print de descarte
-        print('entrando em canal que ja existe')
         if usuario not in Canais[canal.lower()]:
-            # print de descarte
-            print('Usuario entrando no canal:', usuario)
-
             # Adicionando o usuario na lista do canal
             var_user = Canais[canal.lower()]
             var_user.append(usuario)
@@ -245,17 +234,14 @@ def entraCanal(conexao, dados):
             del var_user
         else:
             # Caso o usuario esteja no canal
-            print('USUARIO DENTRO DO CANAL\n\n\n')
             return
 
     # enviando msg de entrada no canal
     msg = b':' + usuario + b' JOIN :' + canal + b'\r\n'
     
     # mandando a msg
-    print('NOME DO CANAL', canal, '\n\n\n\n')
     msgList(conexao, canal, msg)
-    print('Canais', Canais)
-
+    
     # Parte comentada foi escrita pela Bruna, 
     # ainda em fases de teste depois de concluirmos o caso 6
     """
@@ -281,22 +267,30 @@ def entraCanal(conexao, dados):
 
 # CASO 7
 def saiCanal(conexao, dados):
+    # for de visualizacao de dados dos canais
+    for key, value in enumerate(Canais):
+        print('Canal:', value, 'users:', Canais[value.lower()])
+
+
     # Função para sair do canal, 
     # ainda em desenvolvimento
-    canal = dados.split(b' ', 1)[1] # extraindo o canal após o comando
+    print('DADOS DO SAICANAL:', dados)
+    canal = dados[0].split(b' ')[1] # extraindo o canal após o comando
     canal = canal.split(b'\r\n')[0] # removendo os caracteres de quebra de linha
 
     usuario = encontraUsuario(conexao)
 
+    print('CANAL:', canal)
     # monta a mensagem de aviso para membros do canal
     msg = b':' + usuario + b' PART ' + canal + b'\r\n'
-
     # envia
-    msgList(canal, msg)
+    print('A MENSAGEM DE PARTIDA', msg)
+    msgList(conexao, canal, msg)
 
+    print('mandou')
     # removendo o usuario do canal
-    users = Canais[canal]
-    users.remove(usuario)
+    users = Canais[canal.lower()]
+    users.remove(usuario.lower())
     Canais[canal] = users
    
 servidor = Servidor(6667)

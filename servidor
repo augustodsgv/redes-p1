@@ -42,14 +42,6 @@ def removeDado(dados):
 
 
 
-def msgList(conexao, canal, msg):
-    # Funcao para mandar msg para todos no canal
-    for usuario in Canais[canal.lower()]:
-        # Print de descarte
-        print('usuario', usuario)
-        print('entrando no msglist', msg, '\n*******\n\n\n')
-        privateMsg(conexao, usuario, msg)
-
 # Fim das funções auxiliares
 #####################
 def dadosRecebidos(conexao, dados):
@@ -155,9 +147,37 @@ def itsNick(conexao, dados):
         return
 
 # INICIO DO 5
-def privateMsg(conexao, destinatario, dados):
-    # Função para mandar mensagem privada para um determinado usuario
 
+def msgList(conexao, canal, msg):
+    # Funcao para mandar msg para todos no canal
+    comando = msg.split(b' ', 3)[1]
+    # separando os usuarios que receberam a msg
+    usuarios = Canais[canal.lower()].copy()
+
+    print('comando msglist:', comando)
+    # Caso for uma mensagem privada, os membros do canal
+    # receberam a msg, com excesao do usuario que mandou
+    if comando == b'PRIVMSG':
+        usuarios.remove(encontraUsuario(conexao).lower())
+        if usuarios is None:
+            print('ficou vazio')
+            return
+    for usuario in usuarios:
+        # Print de descarte
+        print('usuario', usuario)
+        print('entrando no msglist', msg, '\n*******\n\n\n')
+        privateMsg(conexao, usuario, msg)
+    return
+
+
+def privateMsg(conexao, destinatario, dados):
+    # print de descarte
+    #print('destinatario:', destinatario)
+    # Função para mandar mensagem privada para um determinado usuario
+    if destinatario[0] == 35:
+        print('CANAL:', destinatario)
+        print('USUARIOS:', Canais[destinatario.lower()])
+        msgList(conexao, destinatario, dados)
     #Encontrando o nick de quem mandou
     remetente = encontraUsuario(conexao)
 
@@ -175,7 +195,7 @@ def privateMsg(conexao, destinatario, dados):
     print('\n\n*****************\nPRIVATE MSG ENVIO:', dados, '\n*************\n\n\n')
 
     # Print de descarte
-    print("mandou\n\n")
+    #print("mandou\n\n")
 
     return  
         

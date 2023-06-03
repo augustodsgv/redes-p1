@@ -16,6 +16,21 @@ def sair(conexao):
     # Função para fechar a conexao
     conexao.fechar()
 
+    nick = encontraUsuario(conexao)
+    
+    print('NOME DA SAIDA:', nick)
+    print(Canais)
+    for canal in Canais:
+        print(canal)
+        if nick.lower() in Canais[canal]:
+            print('chegai?')
+            msg = b':' + nick + b' QUIT'
+            msgList(conexao, canal, msg)
+            print('passa?')
+            Canais[canal] = Canais[canal].remove(nick.lower())
+
+    print('fim?')
+
 def encontraUsuario(conexao):
     # Retorna o Nick do usuario com base na conexao
     for chave, valor in Nicks.items():
@@ -39,8 +54,6 @@ def removeDado(dados):
     if b'\r\n' in dados:
          dados = dados.split(b'\r\n', 1)[0]
     return dados          
-
-
 
 # Fim das funções auxiliares
 #####################
@@ -69,8 +82,6 @@ def dadosRecebidos(conexao, dados):
             entraCanal(conexao, dado)
         elif comando == b'PART':
             saiCanal(conexao, dados)
-
-        
 
 def conexaoAceita(conexao):
     conexao.registrar_recebedor(dadosRecebidos)
@@ -111,9 +122,7 @@ def trataDados(conexao, dados):
         conexao.dados_residuais = conexao.dados_residuais + dados
         dados = []
     return dados
-        
 # FIM DO CASO 2	
-
 
 # TRATAMENTO CASO 3 E 4
 def itsNick(conexao, dados):
@@ -148,7 +157,6 @@ def itsNick(conexao, dados):
         return
 
 # INICIO DO 5
-
 def msgList(conexao, canal, msg):
     # Funcao para mandar msg para todos no canal
     comando = msg.split(b' ', 3)[1]
@@ -157,11 +165,12 @@ def msgList(conexao, canal, msg):
 
     # Caso for uma mensagem privada, os membros do canal
     # receberam a msg, com excesao do usuario que mandou
-    if comando == b'PRIVMSG':
+    if comando == b'PRIVMSG' or comando == b'QUIT':
         usuarios.remove(encontraUsuario(conexao).lower())
     
     for usuario in usuarios:
         # Print de descarte
+        print(usuario, 'recebendo msg privada:', msg)
         privateMsg(conexao, usuario, msg)
     return
 

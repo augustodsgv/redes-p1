@@ -1,3 +1,12 @@
+# TRABALHO DE IMPLEMENTACAO DE REDES
+# IMPLEMENTAR UM SERVIDOR IRC
+# Responsaveis pelo trabalho:
+#    Augusto dos Santos Gomes Vaz
+#    Bruna Luiza Pereira
+#    Gabrielly Castilho Guimarães
+#    Jayme Sakae dos Reis Furuyama
+#    Joao Pedro Trevisan
+
 #!/usr/bin/env python3
 import asyncio
 from grader.tcp import Servidor
@@ -15,6 +24,35 @@ def validarNome(nome):
 def sair(conexao):
     # Função para fechar a conexao
     conexao.fechar()
+
+    nick = encontraUsuario(conexao)
+
+    # se o usuario não cadastrou um nome, só retorne
+    if nick is None or nick == b'*':
+        return
+    
+    # percorre os canais para mandar msg de quit
+    for canal in Canais:
+        if nick.lower() in Canais[canal.lower()]:
+            # ecrevendo a msg
+            msg = b':' + nick + b' QUIT :Connection closed' + b'\r\n'
+            msgList(conexao, canal, msg)
+            
+            # removendo o usuario da lista dos canais
+            users = Canais[canal].copy()
+            users.remove(nick.lower())
+            
+            # se o canal ficar vazio, exclua-o
+            if users is None:
+                Canais.pop(canal.lower())
+                Nicks.pop(nick.lower())
+                return
+            
+            # senão, só atualize os usuarios
+            Canais[canal.lower()] = users
+    # removendo o usuario dos Nomes cadastrados
+    Nicks.pop(nick.lower())
+    return
 
 def encontraUsuario(conexao):
     # Retorna o Nick do usuario com base na conexao
@@ -39,16 +77,6 @@ def removeDado(dados):
     if b'\r\n' in dados:
          dados = dados.split(b'\r\n', 1)[0]
     return dados          
-
-
-
-def msgList(conexao, canal, msg):
-    # Funcao para mandar msg para todos no canal
-    for usuario in Canais[canal.lower()]:
-        # Print de descarte
-        print('usuario', usuario)
-        print('entrando no msglist', msg, '\n*******\n\n\n')
-        privateMsg(conexao, usuario, msg)
 
 # Fim das funções auxiliares
 #####################
@@ -75,9 +103,8 @@ def dadosRecebidos(conexao, dados):
             privateMsg(conexao, destinatario, msg)
         elif comando == b'JOIN':
             entraCanal(conexao, dado)
-        #elif comando == b'PART':
-
-        
+        elif comando == b'PART':
+            saiCanal(conexao, dados)
 
 def conexaoAceita(conexao):
     conexao.registrar_recebedor(dadosRecebidos)
@@ -118,9 +145,7 @@ def trataDados(conexao, dados):
         conexao.dados_residuais = conexao.dados_residuais + dados
         dados = []
     return dados
-        
 # FIM DO CASO 2	
-
 
 # TRATAMENTO CASO 3 E 4
 def itsNick(conexao, dados):
@@ -155,9 +180,28 @@ def itsNick(conexao, dados):
         return
 
 # INICIO DO 5
+def msgList(conexao, canal, msg):
+    # Funcao para mandar msg para todos no canal
+    comando = msg.split(b' ', 3)[1]
+    # separando os usuarios que receberam a msg
+    # o copy() faz com que seja passada uma 
+    # copia para um endereço novo
+    usuarios = Canais[canal.lower()].copy()
+
+    # Caso for uma mensagem privada, os membros do canal
+    # receberam a msg, com excesao do usuario que mandou
+    if comando == b'PRIVMSG' or comando == b'QUIT':
+        usuarios.remove(encontraUsuario(conexao).lower())
+    
+    for usuario in usuarios:
+       privateMsg(conexao, usuario, msg)
+    return
+
+
 def privateMsg(conexao, destinatario, dados):
     # Função para mandar mensagem privada para um determinado usuario
-
+    if destinatario[0] == 35:
+        msgList(conexao, destinatario, dados)
     #Encontrando o nick de quem mandou
     remetente = encontraUsuario(conexao)
 
@@ -170,13 +214,6 @@ def privateMsg(conexao, destinatario, dados):
     
     # enviando a mensagem pro destinatario
     cx_dest.enviar(dados)
-
-    # print de descarte
-    print('\n\n*****************\nPRIVATE MSG ENVIO:', dados, '\n*************\n\n\n')
-
-    # Print de descarte
-    print("mandou\n\n")
-
     return  
         
 # FIM CASO 5
@@ -199,18 +236,13 @@ def entraCanal(conexao, dados):
 
     # se o canal nao existe, crie um canal
     if canal.lower() not in Canais:
-        print('CRIANDO UM CANAL NOVO')
         Canais[canal.lower()] = [usuario]
     
     # se ele ja existe
     elif canal.lower() in Canais:
         # confirme se o usuario nao esta nesse canal
         # print de descarte
-        print('entrando em canal que ja existe')
         if usuario not in Canais[canal.lower()]:
-            # print de descarte
-            print('Usuario entrando no canal:', usuario)
-
             # Adicionando o usuario na lista do canal
             var_user = Canais[canal.lower()]
             var_user.append(usuario)
@@ -218,66 +250,64 @@ def entraCanal(conexao, dados):
             var_user.sort()
             Canais[canal.lower()] = var_user
 
-            # Print de descarte
-            print(var_user, '\n\n\n')
-
             # Deletando a variavel para desalocar espaço na memoria
             del var_user
         else:
             # Caso o usuario esteja no canal
-            print('USUARIO DENTRO DO CANAL\n\n\n')
             return
 
     # enviando msg de entrada no canal
     msg = b':' + usuario + b' JOIN :' + canal + b'\r\n'
     
     # mandando a msg
-    print('NOME DO CANAL', canal, '\n\n\n\n')
     msgList(conexao, canal, msg)
-    print('Canais', Canais)
+    
+    # recuperando o nome dos usuarios no canal
+    channel_members = Canais[canal.lower()].copy()
+    channel_members.sort()
 
-    # Parte comentada foi escrita pela Bruna, 
-    # ainda em fases de teste depois de concluirmos o caso 6
-    """
-    #parte do teste 9
-    #pega os todos o membros daquele canal e coloca em ordem alfabetica
-    membrosCanal = Canais[canal]
-    membrosCanal.sort()
+    # mensagem base a ser recortada para envio
+    base = b':server 353 '+ usuario + b' = ' + canal + b' :'
+    msg = base + channel_members[0]
 
-    #junta em uma variavel separando cada nome por um espaço
-    membros = b" ".join(membrosCanal)
-    #calcula o limite de caracters que vai poder colocar na tela retirando o que vai de padrão na mensagem já
-    x = 512 - len(f':server 353 {usuario} = {canal} :') - len(b'\r\n')
+    # for de limitação de caracteres
+    for i in range(1, len(channel_members)):
+        membro = channel_members[i]
+        if len(msg + membro + b' ' + b'\r\n') < 512:
+            msg = msg + b' ' + membro
+        else:
+            conexao.enviar(msg + '\r\n')
+            msg = base + b' ' + membro
+    
+    conexao.enviar(msg + b'\r\n')
 
-    #padroniza a string de acordo com o n° de caracters que descobrimos que pode ter em cada linha além do prefixo
-    membrosPadrao = [membros[i:i+x] for i in range(0, len(membros), x)]
+    # mensagem de servidor 366
+    msg = b':server 366 ' + usuario + b' ' + canal + b' :End of /NAMES list.\r\n'
 
-    #envia a mensagem com a lista dos membros para o usuario que entrou
-    conexao.enviar(b':server 353 ' + usuario + b' = ' + canal + b' : ' + b" ".join(membrosPadrao) +b'\r\n')
-    # envia a mensagem que acabou de exibir os nomes dos membros
-    conexao.enviar(b':server 366 '+ usuario + b' '+ canal + b' :End of /NAMES list.')
-    """
+    conexao.enviar(msg)
+   
     return
 
 # CASO 7
 def saiCanal(conexao, dados):
     # Função para sair do canal, 
     # ainda em desenvolvimento
-    canal = dados.split(b' ', 1)[1] # extraindo o canal após o comando
+    canal = dados[0].split(b' ')[1] # extraindo o canal após o comando
     canal = canal.split(b'\r\n')[0] # removendo os caracteres de quebra de linha
 
     usuario = encontraUsuario(conexao)
 
     # monta a mensagem de aviso para membros do canal
     msg = b':' + usuario + b' PART ' + canal + b'\r\n'
-
     # envia
-    msgList(canal, msg)
+    msgList(conexao, canal, msg)
 
     # removendo o usuario do canal
-    users = Canais[canal]
-    users.remove(usuario)
+    users = Canais[canal.lower()]
+    users.remove(usuario.lower())
     Canais[canal] = users
+    if Canais[canal.lower()] is None:
+        Canais.pop(canal.lower())
    
 servidor = Servidor(6667)
 servidor.registrar_monitor_de_conexoes_aceitas(conexaoAceita)

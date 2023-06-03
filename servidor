@@ -17,19 +17,33 @@ def sair(conexao):
     conexao.fechar()
 
     nick = encontraUsuario(conexao)
-    
-    print('NOME DA SAIDA:', nick)
-    print(Canais)
-    for canal in Canais:
-        print(canal)
-        if nick.lower() in Canais[canal]:
-            print('chegai?')
-            msg = b':' + nick + b' QUIT'
-            msgList(conexao, canal, msg)
-            print('passa?')
-            Canais[canal] = Canais[canal].remove(nick.lower())
 
-    print('fim?')
+    # se o usuario não cadastrou um nome, só retorne
+    if nick is None or nick == b'*':
+        return
+    
+    # percorre os canais para mandar msg de quit
+    for canal in Canais:
+        if nick.lower() in Canais[canal.lower()]:
+            # ecrevendo a msg
+            msg = b':' + nick + b' QUIT :Connection closed' + b'\r\n'
+            msgList(conexao, canal, msg)
+            
+            # removendo o usuario da lista dos canais
+            users = Canais[canal].copy()
+            users.remove(nick.lower())
+            
+            # se o canal ficar vazio, exclua-o
+            if users is None:
+                Canais.pop(canal.lower())
+                Nicks.pop(nick.lower())
+                return
+            
+            # senão, só atualize os usuarios
+            Canais[canal.lower()] = users
+    # removendo o usuario dos Nomes cadastrados
+    Nicks.pop(nick.lower())
+    return
 
 def encontraUsuario(conexao):
     # Retorna o Nick do usuario com base na conexao
@@ -161,6 +175,8 @@ def msgList(conexao, canal, msg):
     # Funcao para mandar msg para todos no canal
     comando = msg.split(b' ', 3)[1]
     # separando os usuarios que receberam a msg
+    # o copy() faz com que seja passada uma 
+    # copia para um endereço novo
     usuarios = Canais[canal.lower()].copy()
 
     # Caso for uma mensagem privada, os membros do canal
@@ -301,6 +317,10 @@ def saiCanal(conexao, dados):
     users = Canais[canal.lower()]
     users.remove(usuario.lower())
     Canais[canal] = users
+    print(Canais)
+    if Canais[canal.lower()] is None:
+        Canais.pop(canal.lower())
+    print(Canais)
    
 servidor = Servidor(6667)
 servidor.registrar_monitor_de_conexoes_aceitas(conexaoAceita)
